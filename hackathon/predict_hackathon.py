@@ -112,15 +112,43 @@ def post_process_protein_ligand(datapoint: Datapoint, input_dicts: List[dict[str
     Returns: 
         Sorted pdb file paths that should be used as your submission.
     """
-    # Collect all PDBs from all configurations
-    all_pdbs = []
+    all_pdbs = {}
+    affinities = {}
     for prediction_dir in prediction_dirs:
-        config_pdbs = sorted(prediction_dir.glob(f"{datapoint.datapoint_id}_config_*_model_*.pdb"))
-        all_pdbs.extend(config_pdbs)
+        affinity_jsons = sorted(prediction_dir.glob(f"affinity_{datapoint.datapoint_id}_config_*.json"))
+        for affinity_json in affinity_jsons:
+            with open(affinity_json, 'r') as f:
+                affinity_file = json.load(f)
+                affinity_binary = affinity_file['affinity_probability_binary']
+                affinity = affinity_file['affinity_pred_value']
+        affinities[datapoint.datapoint_id] = (affinity_binary, affinity)
+
+        all_pdbs[datapoint.datapoint_id] = []
+        confidence_jsons = sorted(prediction_dir.glob(f"confidence_{datapoint.datapoint_id}_config_*_model_*.json"))
+        for confidence_json in confidence_jsons:
+            with open(confidence_json, 'r') as file:
+                confidence = json.load(file)['confidence_score']
+            pdb_file = str(confidence_json).replace('confidence_', '').replace('json', 'pdb')
+            all_pdbs[datapoint.datapoint_id].append([confidence, pdb_file])
     
-    # Sort all PDBs and return their paths
-    all_pdbs = sorted(all_pdbs)
+    print(all_pdbs)
+    # Pick 5 best binary affinity predictions
+    best_affinities = sorted(affinities.items(), key=lambda x: x[1][0], reverse=True)[:5]
+
+    print(best_affinities)
+    # sort them by affinity
+    best_affinities.sort(key=lambda x: x[1][1], reverse=True)
+    print(best_affinities)
+
+    all_pdbs = []
+    for datapoint_id, (affinity_binary, affinity) in best_affinities:
+        pdbs = all_pdbs[datapoint_id]
+        pdbs.sort(key=lambda x: x[0], reverse=True)
+        all_pdbs.extend([Path(pdb) for _, pdb in pdbs])
+        print(f'Result: {affinity_binary}, Confidence: {affinity}')
+
     return all_pdbs
+
 
 # -----------------------------------------------------------------------------
 # ---- End of participant section ---------------------------------------------

@@ -16,6 +16,13 @@ We developed an advanced algorithm to guide ligand placement using pre-determine
 1. We calculate predicted binding affinities for each ligand.
 1. Predicted structures are ranked by affinity and confidence, returning only the most reliable ligand–protein complexes.
 
+**Results:**  
+Upon investigating 3K5V, we found that the allosteric binding pocket had not been identified correctly. Using FPocket, we identified the correct binding site, improving the top 1 prediction out of 5 from 2.5 nm below 0.2 nm.
+
+| Boltz2-RMSD  | fpocket |
+| ------------- | ------------- |
+| ![](rmsd_comparison_3k5v.png)  | ![](pockets.png)  |
+
 **Conclusion:**  
 Integrating *fpocket* with *Boltz* improves allosteric ligand predictions. The workflow is reproducible and compliant with the hackathon evaluation setup.
 

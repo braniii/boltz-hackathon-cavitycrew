@@ -4,9 +4,11 @@ import json
 import os
 import shutil
 import subprocess
+from copy import deepcopy
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, List, Optional
+import numpy as np
 
 import yaml
 from hackathon_api import Datapoint, Protein, SmallMolecule
@@ -14,6 +16,27 @@ from hackathon_api import Datapoint, Protein, SmallMolecule
 # ---------------------------------------------------------------------------
 # ---- Participants should modify these four functions ----------------------
 # ---------------------------------------------------------------------------
+
+def predict_structure_without_ligand(protein: Protein, input_dict: dict, working_dir: Path):
+    input_dict['sequences'] = [e for e in input_dict['sequences'] if 'ligand' not in e]
+    yaml_path = working_dir / 'no-lig.yaml'
+    with open(yaml_path, "w") as f:
+        yaml.safe_dump(input_dict, f, sort_keys=False)
+    # Run boltz
+    cache = os.environ.get("BOLTZ_CACHE", str(Path.home() / ".boltz"))
+    cmd = [
+        "boltz", "predict", str(yaml_path),
+        "--devices", "1",
+        "--out_dir", str(working_dir),
+        "--cache", cache,
+        "--no_kernels",
+        "--output_format", "pdb",
+        "--diffusion_samples", "1"
+    ]
+    print(f"Running boltz without ligand:", " ".join(cmd), flush=True)
+    subprocess.run(cmd, check=True)
+    print('Finished running boltz without ligand')
+
 
 def prepare_protein_complex(datapoint_id: str, proteins: List[Protein], input_dict: dict, msa_dir: Optional[Path] = None) -> List[tuple[dict, List[str]]]:
     """
@@ -48,7 +71,7 @@ def prepare_protein_complex(datapoint_id: str, proteins: List[Protein], input_di
     cli_args = ["--diffusion_samples", "5"]
     return [(input_dict, cli_args)]
 
-def prepare_protein_ligand(datapoint_id: str, protein: Protein, ligands: list[SmallMolecule], input_dict: dict, msa_dir: Optional[Path] = None) -> List[tuple[dict, List[str]]]:
+def prepare_protein_ligand(datapoint_id: str, protein: Protein, ligands: list[SmallMolecule], input_dict: dict, working_dir: Path, msa_dir: Optional[Path] = None) -> List[tuple[dict, List[str]]]:
     """
     Prepare input dict and CLI args for a protein-ligand prediction.
     You can return multiple configurations to run by returning a list of (input_dict, cli_args) tuples.
@@ -57,6 +80,7 @@ def prepare_protein_ligand(datapoint_id: str, protein: Protein, ligands: list[Sm
         protein: The protein sequence
         ligands: A list of a single small molecule ligand object 
         input_dict: Prefilled input dict
+        working_dir: Path to directory
         msa_dir: Directory containing MSA files (for computing relative paths)
     Returns:
         List of tuples of (final input dict that will get exported as YAML, list of CLI args). Each tuple represents a separate configuration to run.
@@ -75,10 +99,48 @@ def prepare_protein_ligand(datapoint_id: str, protein: Protein, ligands: list[Sm
     # ```
     #
     # will add contact constraints to the input_dict
+    no_lig_dict = deepcopy(input_dict)
+    predict_structure_without_ligand(protein, no_lig_dict, working_dir)
+    protein_path = working_dir / 'boltz_results_no-lig' / 'predictions' / 'no-lig' / 'no-lig_model_0.pdb'
+    pockets_paths = working_dir / 'boltz_results_no-lig' / 'predictions' / 'no-lig' / 'no-lig_model_0_out' / 'pockets'
+    if not pockets_paths.exists():
+        fpocket_cmd = f'fpocket -f {str(protein_path)} -D 2.0'
+        subprocess.run(fpocket_cmd, shell=True, check=True)
+    boltz_configs = []
+    pocket_paths = sorted(list(pockets_paths.glob('*atm.pdb')))[:10]
+    for pdb_file in pocket_paths:
+        print(f'Setting up pocket from {pdb_file}')
+        yaml_dict = deepcopy(input_dict)
+        contact_ids = []
+        coords = []
+        with open(pdb_file, 'r')  as pocket_file:
+            for line in pocket_file:
+                contents = line.split()
+                if contents[0] != 'ATOM':
+                    continue
+                contact_ids.append(int(contents[5]))
+                coords.append([float(contents[6]), float(contents[7]), float(contents[8])])
+        coords = np.array(coords)
+        pocket_com = coords.mean(axis=0)
+        distances = np.linalg.norm(coords - pocket_com, axis=1)
+        print('Pocket COM:', pocket_com)
+        print('Pocket COM-Atoms distaces Mean:', distances.mean())
+        print('Pocket COM-Atoms distaces:', distances)
+        contact_ids = np.unique(contact_ids).tolist()
+        contacts = [(protein.id, cid) for cid in contact_ids]
+        yaml_dict['constraints'] = [{
+            'pocket': {
+                'binder': ligands[0].id,
+                'contacts': contacts,
+                'max_distance': 10,
+                'force': True,
+            }
+        }]
+        print(yaml_dict)
+        cli_args = ["--diffusion_samples", "3"]
+        boltz_configs.append((yaml_dict, cli_args))
+    return boltz_configs
 
-    # Example: predict 5 structures
-    cli_args = ["--diffusion_samples", "5"]
-    return [(input_dict, cli_args)]
 
 def post_process_protein_complex(datapoint: Datapoint, input_dicts: List[dict[str, Any]], cli_args_list: List[list[str]], prediction_dirs: List[Path]) -> List[Path]:
     """
@@ -244,7 +306,7 @@ def _run_boltz_and_collect(datapoint) -> None:
     if datapoint.task_type == "protein_complex":
         configs = prepare_protein_complex(datapoint.datapoint_id, datapoint.proteins, base_input_dict, args.msa_dir)
     elif datapoint.task_type == "protein_ligand":
-        configs = prepare_protein_ligand(datapoint.datapoint_id, datapoint.proteins[0], datapoint.ligands, base_input_dict, args.msa_dir)
+        configs = prepare_protein_ligand(datapoint.datapoint_id, datapoint.proteins[0], datapoint.ligands, base_input_dict, subdir, args.msa_dir)
     else:
         raise ValueError(f"Unknown task_type: {datapoint.task_type}")
 

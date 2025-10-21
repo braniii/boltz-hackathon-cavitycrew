@@ -99,6 +99,8 @@ def prepare_protein_ligand(datapoint_id: str, protein: Protein, ligands: list[Sm
     # ```
     #
     # will add contact constraints to the input_dict
+    n_pockets = 10
+    n_samples = 3
     no_lig_dict = deepcopy(input_dict)
     predict_structure_without_ligand(protein, no_lig_dict, working_dir)
     protein_path = working_dir / 'boltz_results_no-lig' / 'predictions' / 'no-lig' / 'no-lig_model_0.pdb'
@@ -107,7 +109,7 @@ def prepare_protein_ligand(datapoint_id: str, protein: Protein, ligands: list[Sm
         fpocket_cmd = f'fpocket -f {str(protein_path)} -D 2.0'
         subprocess.run(fpocket_cmd, shell=True, check=True)
     boltz_configs = []
-    pocket_paths = sorted(list(pockets_paths.glob('*atm.pdb')))[:10]
+    pocket_paths = sorted(list(pockets_paths.glob('*atm.pdb')))[:n_pockets]
     for pdb_file in pocket_paths:
         print(f'Setting up pocket from {pdb_file}')
         yaml_dict = deepcopy(input_dict)
@@ -137,7 +139,7 @@ def prepare_protein_ligand(datapoint_id: str, protein: Protein, ligands: list[Sm
             }
         }]
         print(yaml_dict)
-        cli_args = ["--diffusion_samples", "3"]
+        cli_args = ['--diffusion_samples', f'{n_samples:.0f}']
         boltz_configs.append((yaml_dict, cli_args))
     return boltz_configs
 

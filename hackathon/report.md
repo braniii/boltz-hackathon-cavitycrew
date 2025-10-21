@@ -8,12 +8,13 @@
 *Boltz-2*[^1] performs well on orthosteric ligands but not on allosteric inhibitors, as most training crystal structures contain ligands in the main pocket. To identify allosteric sites, we use Boltz’s advanced steering methods to guide sampling toward alternative binding pockets.
 
 **Method:**  
-We developed an advanced algorithm to guide ligand placement using pre-determined pocket candidates. This approach integrates protein structure prediction, pocket detection, and ligand steering to improve sampling of both orthosteric and allosteric sites.
-- We run *Boltz* to predict the structure of the protein without any bound ligand.
-- We use the *fpocket*[^2] program to detect potential binding pockets.
-- For the top predicted pockets, we run a *Boltz* prediction with the ligand restrained to the pocket, adding spatial constraints to guide placement more precisely.
-- We calculate predicted binding affinities for each ligand.
-- Predicted structures are ranked by affinity and confidence, returning only the most reliable ligand–protein complexes.
+We developed an advanced algorithm to guide ligand placement using pre-determined pocket candidates. This approach integrates protein structure prediction, pocket detection, and ligand steering to improve sampling of both orthosteric and allosteric sites. The algorithm consists of the following steps:
+
+1. We run *Boltz* to predict the structure of the protein without any bound ligand.
+1. We use the *fpocket*[^2] program to detect potential binding pockets.
+1. For the top predicted pockets, we run a *Boltz* prediction with the ligand restrained to the pocket, adding spatial constraints to guide placement more precisely.
+1. We calculate predicted binding affinities for each ligand.
+1. Predicted structures are ranked by affinity and confidence, returning only the most reliable ligand–protein complexes.
 
 **Conclusion:**  
 Integrating *fpocket* with *Boltz* improves allosteric ligand predictions. The workflow is reproducible and compliant with the hackathon evaluation setup.

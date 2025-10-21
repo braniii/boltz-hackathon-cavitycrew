@@ -138,7 +138,7 @@ def prepare_protein_ligand(datapoint_id: str, protein: Protein, ligands: list[Sm
                 'force': True,
             }
         }]
-        yaml_dict['properties'] = {'affinity': {'binder': ligands[0].id}}
+        yaml_dict['properties'] = [{'affinity': {'binder': ligands[0].id}}]
         print(yaml_dict)
         cli_args = ['--diffusion_samples', f'{n_samples:.0f}']
         boltz_configs.append((yaml_dict, cli_args))

@@ -176,42 +176,46 @@ def post_process_protein_ligand(datapoint: Datapoint, input_dicts: List[dict[str
     Returns: 
         Sorted pdb file paths that should be used as your submission.
     """
+    # Collect all PDBs from all configurations
     all_pdbs = {}
     affinities = {}
-    for prediction_dir in prediction_dirs:
+    print(f'{prediction_dirs=}')
+    for idx, prediction_dir in enumerate(prediction_dirs):
         affinity_jsons = sorted(prediction_dir.glob(f"affinity_{datapoint.datapoint_id}_config_*.json"))
         for affinity_json in affinity_jsons:
             with open(affinity_json, 'r') as f:
                 affinity_file = json.load(f)
                 affinity_binary = affinity_file['affinity_probability_binary']
                 affinity = affinity_file['affinity_pred_value']
-        affinities[datapoint.datapoint_id] = (affinity_binary, affinity)
+        affinities[idx] = (affinity_binary, affinity)
 
-        all_pdbs[datapoint.datapoint_id] = []
+        all_pdbs[idx] = []
         confidence_jsons = sorted(prediction_dir.glob(f"confidence_{datapoint.datapoint_id}_config_*_model_*.json"))
         for confidence_json in confidence_jsons:
             with open(confidence_json, 'r') as file:
                 confidence = json.load(file)['confidence_score']
             pdb_file = str(confidence_json).replace('confidence_', '').replace('json', 'pdb')
-            all_pdbs[datapoint.datapoint_id].append([confidence, pdb_file])
+            all_pdbs[idx].append([confidence, pdb_file])
     
     print(all_pdbs)
     # Pick 5 best binary affinity predictions
     best_affinities = sorted(affinities.items(), key=lambda x: x[1][0], reverse=True)[:5]
+    print(f'{best_affinities=}')
 
-    print(best_affinities)
     # sort them by affinity
-    best_affinities.sort(key=lambda x: x[1][1], reverse=True)
-    print(best_affinities)
+    best_affinities.sort(key=lambda x: x[1][1])
+    print(f'{best_affinities=}')
 
-    all_pdbs = []
-    for datapoint_id, (affinity_binary, affinity) in best_affinities:
-        pdbs = all_pdbs[datapoint_id]
+    final_pdbs = []
+    for idx, (affinity_binary, affinity) in best_affinities:
+        pdbs = all_pdbs[idx]
         pdbs.sort(key=lambda x: x[0], reverse=True)
-        all_pdbs.extend([Path(pdb) for _, pdb in pdbs])
-        print(f'Result: {affinity_binary}, Confidence: {affinity}')
+        final_pdbs.extend([Path(pdb) for _, pdb in pdbs])
+        print(f'Result: {affinity_binary}')
+        for conf, _ in pdbs:
+            print(f'    conf={conf:.3f}')
 
-    return all_pdbs
+    return final_pdbs
 
 
 # -----------------------------------------------------------------------------

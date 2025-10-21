@@ -306,6 +306,8 @@ def _run_boltz_and_collect(datapoint) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     subdir = args.submission_dir / datapoint.datapoint_id
     subdir.mkdir(parents=True, exist_ok=True)
+    working_dir = args.intermediate_dir / f'working_dir_{datapoint.datapoint_id}'
+    working_dir.mkdir(parents=True, exist_ok=True)
 
     # Prepare input dict and CLI args
     base_input_dict = _prefill_input_dict(datapoint.datapoint_id, datapoint.proteins, datapoint.ligands, args.msa_dir)
@@ -313,7 +315,7 @@ def _run_boltz_and_collect(datapoint) -> None:
     if datapoint.task_type == "protein_complex":
         configs = prepare_protein_complex(datapoint.datapoint_id, datapoint.proteins, base_input_dict, args.msa_dir)
     elif datapoint.task_type == "protein_ligand":
-        configs = prepare_protein_ligand(datapoint.datapoint_id, datapoint.proteins[0], datapoint.ligands, base_input_dict, subdir, args.msa_dir)
+        configs = prepare_protein_ligand(datapoint.datapoint_id, datapoint.proteins[0], datapoint.ligands, base_input_dict, working_dir, args.msa_dir)
     else:
         raise ValueError(f"Unknown task_type: {datapoint.task_type}")
 

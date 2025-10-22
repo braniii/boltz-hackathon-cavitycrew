@@ -1,3 +1,12 @@
+> ### M-Boltz Hackathon
+>
+> Contribution of the **Cavity Crew Team**
+>
+> Boltz-2 performs well on orthosteric ligands but not on allosteric inhibitors, as most training crystal structures contain ligands in the main pocket. To identify allosteric sites, we use Boltz’s advanced steering methods to guide sampling toward alternative binding pockets identified by fpocket.
+>
+> The whole report can be found [here](./hackathon/report.md).
+
+
 <div align="center">
   <div>&nbsp;</div>
   <img src="docs/boltz2_title.png" width="300"/>
